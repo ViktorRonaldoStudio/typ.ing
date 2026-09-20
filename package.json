@@ -1,0 +1,56 @@
+{
+  "name": "typdoting",
+  "version": "0.1.0",
+  "description": "A focused typing trainer for your terminal",
+  "type": "module",
+  "bin": {
+    "typdoting": "dist/cli.js",
+    "typ.ing": "dist/cli.js",
+    "typ-ing": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "bun src/cli.ts",
+    "start": "bun dist/cli.js",
+    "test": "bun test",
+    "prepublishOnly": "bun run check && bun test && bun run build"
+  },
+  "keywords": [
+    "typing",
+    "typing-test",
+    "trainer",
+    "terminal",
+    "tui",
+    "cli",
+    "opentui"
+  ],
+  "homepage": "https://github.com/ViktorRonaldoStudio/typ.ing#readme",
+  "bugs": {
+    "url": "https://github.com/ViktorRonaldoStudio/typ.ing/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ViktorRonaldoStudio/typ.ing.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@opentui/core": "0.5.11"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
