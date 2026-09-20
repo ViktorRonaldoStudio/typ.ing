@@ -12,9 +12,11 @@ import {
   type KeyEvent,
   type TextChunk,
 } from "@opentui/core"
+import { readFile } from "node:fs/promises"
 
-import { createContent } from "./content.js"
-import { PRESET_DURATIONS, type CliOptions, type Mode } from "./options.js"
+import { fetchReadwiseHighlights, savedReadwiseToken } from "./account.js"
+import { createContent, createPhraseContent } from "./content.js"
+import { type CliOptions, type Mode } from "./options.js"
 import { seededRandom, type RandomSource } from "./random.js"
 import { TypingSession } from "./session.js"
 
@@ -32,16 +34,18 @@ const COLORS = {
 } as const
 
 const MODE_KEYS: ReadonlyArray<{ key: string; mode: Mode }> = [
-  { key: "1", mode: "words" },
-  { key: "2", mode: "quotes" },
-  { key: "3", mode: "code" },
+  { key: "f1", mode: "words" },
+  { key: "f2", mode: "quotes" },
+  { key: "f3", mode: "code" },
+  { key: "f4", mode: "numbers" },
+  { key: "f5", mode: "symbols" },
 ]
 
 const TIME_KEYS: ReadonlyArray<{ key: string; seconds: number }> = [
-  { key: "a", seconds: 15 },
-  { key: "s", seconds: 30 },
-  { key: "d", seconds: 60 },
-  { key: "f", seconds: 120 },
+  { key: "f6", seconds: 15 },
+  { key: "f7", seconds: 30 },
+  { key: "f8", seconds: 60 },
+  { key: "f9", seconds: 120 },
 ]
 
 function labelChunks(
@@ -106,9 +110,11 @@ function progressBar(progress: number, width: number): StyledText {
   return t`${fg(COLORS.accent)("━".repeat(filled))}${fg(COLORS.border)("━".repeat(size - filled))}`
 }
 
+type ContentFactory = (mode: Mode) => string
+
 class TrainerApp {
   private readonly renderer: CliRenderer
-  private readonly random: RandomSource
+  private readonly createTarget: ContentFactory
   private mode: Mode
   private durationSeconds: number
   private session: TypingSession
@@ -123,9 +129,9 @@ class TrainerApp {
   private readonly progressDisplay: TextRenderable
   private readonly hintText: TextRenderable
 
-  constructor(renderer: CliRenderer, options: CliOptions) {
+  constructor(renderer: CliRenderer, options: CliOptions, createTarget: ContentFactory) {
     this.renderer = renderer
-    this.random = options.seed === undefined ? Math.random : seededRandom(options.seed)
+    this.createTarget = createTarget
     this.mode = options.mode
     this.durationSeconds = options.durationSeconds
     this.session = this.newSession()
@@ -255,7 +261,7 @@ class TrainerApp {
   }
 
   private newSession(): TypingSession {
-    return new TypingSession(createContent(this.mode, this.random), this.durationSeconds)
+    return new TypingSession(this.createTarget(this.mode), this.durationSeconds)
   }
 
   private restart(): void {
@@ -284,18 +290,14 @@ class TrainerApp {
     }
 
     if (this.session.status === "ready") {
-      const modeChoice = key.ctrl
-        ? MODE_KEYS.find((choice) => choice.key === key.name)
-        : undefined
+      const modeChoice = MODE_KEYS.find((choice) => choice.key === key.name)
       if (modeChoice) {
         this.mode = modeChoice.mode
         this.restart()
         return
       }
 
-      const timeChoice = key.ctrl
-        ? TIME_KEYS.find((choice) => choice.key === key.name)
-        : undefined
+      const timeChoice = TIME_KEYS.find((choice) => choice.key === key.name)
       if (timeChoice) {
         this.durationSeconds = timeChoice.seconds
         this.restart()
@@ -310,7 +312,8 @@ class TrainerApp {
 
     if (key.ctrl || key.meta || key.option) return
     const character = key.name === "space" ? " " : key.sequence
-    if (/^[\x20-\x7e]$/.test(character) && this.session.input(character)) this.render()
+    const isPrintable = Array.from(character).length === 1 && !/[\u0000-\u001f\u007f]/u.test(character)
+    if (isPrintable && this.session.input(character)) this.render()
   }
 
   private onResize = (): void => {
@@ -345,17 +348,21 @@ class TrainerApp {
 
   private renderSettings(): void {
     const modeChunks = labelChunks(MODE_KEYS.map(({ key, mode }) => ({
-      key: `^${key}`,
+      key: key.toUpperCase(),
       label: mode,
       selected: mode === this.mode,
     })))
     const timeChunks = labelChunks(TIME_KEYS.map(({ key, seconds }) => ({
-      key: `^${key}`,
+      key: key.toUpperCase(),
       label: `${seconds}s`,
       selected: seconds === this.durationSeconds,
     })))
 
+    const specialMode = this.mode === "readwise" || this.mode === "custom"
+      ? [bold(fg(COLORS.accent)(this.mode)), fg(COLORS.border)("   │   ")]
+      : []
     this.settingsText.content = new StyledText([
+      ...specialMode,
       ...modeChunks,
       fg(COLORS.border)("     │     "),
       ...timeChunks,
@@ -407,13 +414,42 @@ class TrainerApp {
 }
 
 export async function runApp(options: CliOptions): Promise<void> {
+  const random = options.seed === undefined ? Math.random : seededRandom(options.seed)
+  let externalContent: string | null = null
+
+  if (options.mode === "custom") {
+    const source = options.text ?? (options.file ? await readFile(options.file, "utf8") : "")
+    externalContent = source.replace(/\s+/g, " ").trim()
+    if (!externalContent) throw new Error("The custom practice text is empty")
+  }
+
+  if (options.mode === "readwise") {
+    const token = process.env.READWISE_TOKEN?.trim() ?? await savedReadwiseToken()
+    if (!token) throw new Error("Readwise is not connected. Run 'typ.ing login' first.")
+    const highlights = await fetchReadwiseHighlights(token)
+    if (highlights.length === 0) throw new Error("No usable Readwise highlights were found")
+    externalContent = createPhraseContent(highlights, random)
+  }
+
+  const initialMode = options.mode
+  const createTarget: ContentFactory = (mode) => {
+    if (mode === initialMode && externalContent) return externalContent
+    return createContent(mode, random, 5_000, options.language)
+  }
+
   const renderer = await createCliRenderer({
     exitOnCtrlC: true,
     backgroundColor: COLORS.background,
   })
-  mountApp(renderer, options)
+  mountApp(renderer, options, createTarget)
 }
 
-export function mountApp(renderer: CliRenderer, options: CliOptions): void {
-  new TrainerApp(renderer, options)
+export function mountApp(
+  renderer: CliRenderer,
+  options: CliOptions,
+  createTarget?: ContentFactory,
+): void {
+  const random: RandomSource = options.seed === undefined ? Math.random : seededRandom(options.seed)
+  const fallback = (mode: Mode) => createContent(mode, random, 5_000, options.language)
+  new TrainerApp(renderer, options, createTarget ?? fallback)
 }

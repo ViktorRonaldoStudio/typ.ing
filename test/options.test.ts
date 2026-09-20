@@ -5,6 +5,7 @@ import { OptionError, parseOptions } from "../src/options.js"
 describe("parseOptions", () => {
   test("uses focused defaults", () => {
     expect(parseOptions([])).toEqual({
+      command: "train",
       durationSeconds: 30,
       mode: "words",
       help: false,
@@ -14,6 +15,7 @@ describe("parseOptions", () => {
 
   test("parses mode, time, and seed", () => {
     expect(parseOptions(["--mode", "code", "--time", "45", "--seed", "7"])).toEqual({
+      command: "train",
       durationSeconds: 45,
       mode: "code",
       seed: 7,
@@ -23,8 +25,23 @@ describe("parseOptions", () => {
   })
 
   test("rejects invalid options", () => {
-    expect(() => parseOptions(["--mode", "numbers"])).toThrow(OptionError)
+    expect(() => parseOptions(["--mode", "unknown"])).toThrow(OptionError)
     expect(() => parseOptions(["--time", "2"])).toThrow(OptionError)
     expect(() => parseOptions(["--wat"])).toThrow(OptionError)
+  })
+
+  test("parses languages, custom text, and account commands", () => {
+    expect(parseOptions(["--mode", "words", "--language", "fr"]).language).toBe("fr")
+    expect(parseOptions(["--text", "practice this"])).toMatchObject({
+      mode: "custom",
+      text: "practice this",
+    })
+    expect(parseOptions(["login"]).command).toBe("login")
+  })
+
+  test("validates mode-specific options", () => {
+    expect(() => parseOptions(["--mode", "custom"])).toThrow(OptionError)
+    expect(() => parseOptions(["--mode", "words", "--language", "rust"])).toThrow(OptionError)
+    expect(() => parseOptions(["--mode", "symbols", "--language", "en"])).toThrow(OptionError)
   })
 })

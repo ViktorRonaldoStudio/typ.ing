@@ -27,6 +27,21 @@ async function main(): Promise<void> {
     return
   }
 
+  if (options.command !== "train") {
+    const { loginReadwise, logoutReadwise, readwiseStatus } = await import("./account.js")
+    try {
+      if (options.command === "login") await loginReadwise()
+      if (options.command === "logout") {
+        console.log(await logoutReadwise() ? "Readwise disconnected." : "Readwise was not connected.")
+      }
+      if (options.command === "whoami") console.log(await readwiseStatus())
+    } catch (error) {
+      console.error(`typ.ing: ${error instanceof Error ? error.message : String(error)}`)
+      process.exitCode = 1
+    }
+    return
+  }
+
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.error("typ.ing needs an interactive terminal.")
     process.exitCode = 1
@@ -59,7 +74,12 @@ async function main(): Promise<void> {
   }
 
   const { runApp } = await import("./app.js")
-  await runApp(options)
+  try {
+    await runApp(options)
+  } catch (error) {
+    console.error(`typ.ing: ${error instanceof Error ? error.message : String(error)}`)
+    process.exitCode = 1
+  }
 }
 
 await main()
