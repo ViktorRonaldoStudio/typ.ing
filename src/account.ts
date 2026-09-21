@@ -3,7 +3,7 @@ import { chmod, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promi
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 
-const TOKEN_URL = "https://readwise.io/access_token"
+export const READWISE_TOKEN_URL = "https://readwise.io/access_token"
 const AUTH_URL = "https://readwise.io/api/v2/auth/"
 const HIGHLIGHTS_URL = "https://readwise.io/api/v2/highlights/?page_size=1000"
 
@@ -73,12 +73,26 @@ export async function fetchReadwiseHighlights(
     .filter((text) => text.length >= 20)
 }
 
-function openTokenPage(): void {
+export function openReadwiseTokenPage(): void {
   const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open"
-  const args = process.platform === "win32" ? ["/c", "start", "", TOKEN_URL] : [TOKEN_URL]
+  const args = process.platform === "win32" ? ["/c", "start", "", READWISE_TOKEN_URL] : [READWISE_TOKEN_URL]
   const child = spawn(command, args, { detached: true, stdio: "ignore" })
   child.on("error", () => {})
   child.unref()
+}
+
+export async function connectReadwise(
+  token: string,
+  fetcher: Fetcher = fetch,
+  path = accountPath(),
+): Promise<string> {
+  const normalizedToken = token.trim()
+  if (!normalizedToken) throw new Error("No token provided")
+  if (!await validateReadwiseToken(normalizedToken, fetcher)) {
+    throw new Error("Readwise did not accept that token")
+  }
+  await writeConfig({ readwiseToken: normalizedToken }, path)
+  return normalizedToken
 }
 
 async function promptSecret(prompt: string): Promise<string> {
@@ -131,13 +145,11 @@ async function promptSecret(prompt: string): Promise<string> {
 export async function loginReadwise(): Promise<void> {
   const environmentToken = process.env.READWISE_TOKEN?.trim()
   if (!environmentToken) {
-    console.log(`Opening ${TOKEN_URL}`)
-    openTokenPage()
+    console.log(`Opening ${READWISE_TOKEN_URL}`)
+    openReadwiseTokenPage()
   }
   const token = environmentToken || await promptSecret("Paste your Readwise access token: ")
-  if (!token) throw new Error("No token provided")
-  if (!await validateReadwiseToken(token)) throw new Error("Readwise did not accept that token")
-  await writeConfig({ readwiseToken: token })
+  await connectReadwise(token)
   console.log("Readwise connected. Try: typ.ing --mode readwise")
 }
 

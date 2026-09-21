@@ -8,6 +8,7 @@ describe("parseOptions", () => {
       command: "train",
       durationSeconds: 30,
       mode: "words",
+      startInNavigation: true,
       help: false,
       version: false,
     })
@@ -19,6 +20,7 @@ describe("parseOptions", () => {
       durationSeconds: 45,
       mode: "code",
       seed: 7,
+      startInNavigation: false,
       help: false,
       version: false,
     })
@@ -35,6 +37,7 @@ describe("parseOptions", () => {
     expect(parseOptions(["--text", "practice this"])).toMatchObject({
       mode: "custom",
       text: "practice this",
+      startInNavigation: false,
     })
     expect(parseOptions(["login"]).command).toBe("login")
   })

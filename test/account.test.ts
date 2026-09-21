@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 
-import { fetchReadwiseHighlights, validateReadwiseToken } from "../src/account.js"
+import { connectReadwise, fetchReadwiseHighlights, validateReadwiseToken } from "../src/account.js"
 
 function responseFetcher(body: unknown, status = 200) {
   return async () => new Response(
@@ -29,5 +32,17 @@ describe("Readwise account integration", () => {
 
   test("reports rejected account tokens", async () => {
     expect(fetchReadwiseHighlights("bad", responseFetcher({}, 401))).rejects.toThrow("login")
+  })
+
+  test("validates and stores a token for both CLI and in-app login", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "typdoting-account-"))
+    const path = join(directory, "account.json")
+    try {
+      expect(await connectReadwise("  secret-token  ", responseFetcher(null, 204), path))
+        .toBe("secret-token")
+      expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ readwiseToken: "secret-token" })
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 })

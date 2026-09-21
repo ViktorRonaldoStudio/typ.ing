@@ -1,4 +1,4 @@
-export const VERSION = "0.2.0"
+export const VERSION = "0.4.0"
 
 export const MODES = ["words", "quotes", "code", "numbers", "symbols", "readwise", "custom"] as const
 export type Mode = (typeof MODES)[number]
@@ -17,6 +17,7 @@ export interface CliOptions {
   file?: string
   text?: string
   seed?: number
+  startInNavigation: boolean
   help: boolean
   version: boolean
 }
@@ -41,6 +42,7 @@ export function parseOptions(args: string[]): CliOptions {
     command: "train",
     durationSeconds: 30,
     mode: "words",
+    startInNavigation: true,
     help: false,
     version: false,
   }
@@ -81,6 +83,7 @@ export function parseOptions(args: string[]): CliOptions {
         throw new OptionError(`--mode must be one of: ${MODES.join(", ")}`)
       }
       options.mode = mode as Mode
+      options.startInNavigation = false
       index += 1
       continue
     }
@@ -91,6 +94,7 @@ export function parseOptions(args: string[]): CliOptions {
         throw new OptionError(`--language must be one of: ${LANGUAGES.join(", ")}`)
       }
       options.language = language as Language
+      options.startInNavigation = false
       index += 1
       continue
     }
@@ -98,6 +102,7 @@ export function parseOptions(args: string[]): CliOptions {
     if (argument === "--file") {
       options.file = readValue(args, index, argument)
       options.mode = "custom"
+      options.startInNavigation = false
       index += 1
       continue
     }
@@ -105,6 +110,7 @@ export function parseOptions(args: string[]): CliOptions {
     if (argument === "--text") {
       options.text = readValue(args, index, argument)
       options.mode = "custom"
+      options.startInNavigation = false
       index += 1
       continue
     }
@@ -169,6 +175,11 @@ Commands:
   login               connect a Readwise account
   logout              remove the saved Readwise token
   whoami              show Readwise connection status
+
+Navigation:
+  Type a category, use ↑/↓ to move, and press Enter to select.
+  Select duration to choose a session length the same way.
+  Press / while a test is idle to open the options navigator.
 
 Requires Bun 1.3 or newer.`
 }

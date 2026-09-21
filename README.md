@@ -17,7 +17,7 @@ npx typdoting
 You can also install it globally:
 
 ```sh
-npm install --global typ.ing
+npm install --global typdoting
 typ.ing
 ```
 
@@ -45,7 +45,9 @@ npx typdoting --mode words --language fr
 npx typdoting --file ./chapter.txt
 ```
 
-Inside the trainer, use `F1`–`F5` to choose words/quotes/code/numbers/symbols and `F6`–`F9` to select 15/30/60/120 seconds before typing. Press `Tab` to restart, `Escape` to reset, and `Ctrl+C` to quit.
+With no mode argument, the trainer opens a typ.ing-style options navigator: start typing a category name to filter the list, use `↑`/`↓` to move, and press `Enter` to select. Choose `duration` the same way to open the timing options. Press `/` while a test is idle to open the navigator again, or `Esc` to go back.
+
+Inside the trainer, use `F1`–`F5` to quickly choose words/quotes/code/numbers/symbols and `F6`–`F9` to select 15/30/60/120 seconds before typing. Press `Ctrl+L` to connect Readwise without leaving the TUI, `Tab` to restart, `Escape` to reset, and `Ctrl+C` to quit. Explicit `--mode`, `--language`, `--file`, and `--text` arguments skip the navigator.
 
 ## Readwise
 
@@ -60,6 +62,8 @@ The login opens Readwise's access-token page, validates the token through Readwi
 ```sh
 npx typdoting --mode readwise
 ```
+
+You can also press `Ctrl+L` while the trainer is open. Paste the token into the masked prompt and press `Enter`; the TUI validates it, saves it, loads your highlights, and switches directly to Readwise mode.
 
 Use `typ.ing whoami` to check the connection or `typ.ing logout` to remove the saved token. You may provide `READWISE_TOKEN` instead of saving a token locally.
 
